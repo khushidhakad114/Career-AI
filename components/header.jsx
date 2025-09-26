@@ -19,20 +19,23 @@ import {
 
 export default function Header() {
   return (
-    <header className="fixed top-0 w-full border-b bg-background/80 backdrop-blur-md z-50 supports-[backdrop-filter]:bg-background/60">
-      <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
+    <header
+      className="fixed top-0 w-full border-b bg-background/80 backdrop-blur-md z-50 
+    supports-[backdrop-filter]:bg-background/60"
+    >
+      <nav className="h-16 flex items-center justify-between px-4">
         <Link href="/">
           <Image
             src={"/logo.png"}
             alt="Careerai Logo"
             width={200}
             height={60}
-            className="h-12 py-1 w-auto object-contain"
+            className="h-14 py-0 w-auto object-contain"
           />
         </Link>
 
         {/* Action Buttons */}
-        <div className="flex items-center space-x-2 md:space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-4 pr-2">
           <SignedIn>
             <Link href="/dashboard">
               <Button
@@ -40,10 +43,7 @@ export default function Header() {
                 className="hidden md:inline-flex items-center gap-2"
               >
                 <LayoutDashboard className="h-4 w-4" />
-                Industry Insights
-              </Button>
-              <Button variant="ghost" className="md:hidden w-10 h-10 p-0">
-                <LayoutDashboard className="h-4 w-4" />
+                <span className="hidden md:block">Industry Insights</span>
               </Button>
             </Link>
 
