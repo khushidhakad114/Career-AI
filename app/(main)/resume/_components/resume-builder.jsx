@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import MDEditor from "@uiw/react-md-editor";
 import { entriesToMarkdown } from "@/app/lib/helper";
 import { toast } from "sonner";
-import html2pdf from "html2pdf.js";
 
 const ResumeBuilder = ({ initialContent }) => {
   const [activeTab, setActiveTab] = useState("edit");
@@ -111,16 +110,18 @@ const ResumeBuilder = ({ initialContent }) => {
   const generatePDF = async () => {
     setIsGenerating(true);
     try {
-      const element = document.getElementById("resume-pdf");
-      const opt = {
-        margin: [15, 15],
-        filename: "resume.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
-
-      await html2pdf().set(opt).from(element).save();
+      if (typeof window !== "undefined") {
+        const html2pdf = (await import("html2pdf.js")).default;
+        const element = document.getElementById("resume-pdf");
+        const opt = {
+          margin: [15, 15],
+          filename: "resume.pdf",
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        };
+        await html2pdf().set(opt).from(element).save();
+      }
     } catch (error) {
       console.error("PDF generation error:", error);
     } finally {
