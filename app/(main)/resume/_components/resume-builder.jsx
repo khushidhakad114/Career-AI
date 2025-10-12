@@ -22,13 +22,13 @@ import { Input } from "@/components/ui/input";
 import MDEditor from "@uiw/react-md-editor";
 import { entriesToMarkdown } from "@/app/lib/helper";
 import { toast } from "sonner";
+import ReactDOMServer from "react-dom/server";
 
 const ResumeBuilder = ({ initialContent }) => {
   const [activeTab, setActiveTab] = useState("edit");
   const [previewContent, setPreviewContent] = useState(initialContent);
   const { user } = useUser();
   const [resumeMode, setResumeMode] = useState("preview");
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const {
     control,
@@ -55,7 +55,6 @@ const ResumeBuilder = ({ initialContent }) => {
     error: saveError,
   } = useFetch(saveResume);
 
-  // Watch form fields for preview updates
   const formValues = watch();
 
   useEffect(() => {
@@ -88,8 +87,9 @@ const ResumeBuilder = ({ initialContent }) => {
     if (contactInfo.twitter) parts.push(`🐦 [Twitter](${contactInfo.twitter})`);
 
     return parts.length > 0
-      ? `## <div align="center">${user.fullName}</div>
-        \n\n<div align="center">\n\n${parts.join(" | ")}\n\n</div>`
+      ? `## <div align="center">${
+          user.fullName
+        }</div>\n\n<div align="center">\n\n${parts.join(" | ")}\n\n</div>`
       : "";
   };
 
@@ -107,37 +107,56 @@ const ResumeBuilder = ({ initialContent }) => {
       .join("\n\n");
   };
 
-  const generatePDF = async () => {
-    setIsGenerating(true);
-    try {
-      if (typeof window !== "undefined") {
-        const html2pdf = (await import("html2pdf.js")).default;
-        const element = document.getElementById("resume-pdf");
-        const opt = {
-          margin: [15, 15],
-          filename: "resume.pdf",
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        };
-        await html2pdf().set(opt).from(element).save();
-      }
-    } catch (error) {
-      console.error("PDF generation error:", error);
-    } finally {
-      setIsGenerating(false);
-    }
+  // ✅ Print/Download PDF without link icons
+  const printResume = () => {
+    const htmlContent = ReactDOMServer.renderToStaticMarkup(
+      <MDEditor.Markdown
+        source={previewContent}
+        style={{ background: "white", color: "black" }}
+        components={{
+          a: ({ children, ...props }) => (
+            <a {...props} style={{ textDecoration: "none", color: "#0645AD" }}>
+              {children}
+            </a>
+          ),
+        }}
+      />
+    );
+
+    const printWindow = window.open("", "_blank", "width=800,height=900");
+    if (!printWindow) return;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Resume</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin:auto; line-height:1.6; color:#000; background:#fff; }
+            h1,h2,h3,h4 { text-align:center; margin:1.2em 0 0.4em 0; }
+            p { margin:0.4em 0; }
+            ul { margin:0.4em 0 0.4em 1.2em; }
+            a { text-decoration:none; color:#0645AD; }
+          </style>
+        </head>
+        <body>${htmlContent}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
   };
 
   const onSubmit = async (data) => {
     try {
       const formattedContent = previewContent
-        .replace(/\n/g, "\n") // Normalize newlines
-        .replace(/\n\s*\n/g, "\n\n") // Normalize multiple newlines to double newlines
+        .replace(/\n/g, "\n")
+        .replace(/\n\s*\n/g, "\n\n")
         .trim();
-
-      console.log(previewContent, formattedContent);
-      await saveResumeFn(previewContent);
+      await saveResumeFn(formattedContent);
     } catch (error) {
       console.error("Save error:", error);
     }
@@ -157,31 +176,20 @@ const ResumeBuilder = ({ initialContent }) => {
           >
             {isSaving ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
               </>
             ) : (
               <>
-                <Save className="h-4 w-4" />
-                Save
+                <Save className="h-4 w-4" /> Save
               </>
             )}
           </Button>
-          <Button onClick={generatePDF} disabled={isGenerating}>
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating PDF...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4" />
-                Download PDF
-              </>
-            )}
+          <Button onClick={printResume}>
+            <Download className="h-4 w-4" /> Print / Download PDF
           </Button>
         </div>
       </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="edit">Form</TabsTrigger>
@@ -200,7 +208,6 @@ const ResumeBuilder = ({ initialContent }) => {
                     {...register("contactInfo.email")}
                     type="email"
                     placeholder="your@email.com"
-                    error={errors.contactInfo?.email}
                   />
                   {errors.contactInfo?.email && (
                     <p className="text-sm text-red-500">
@@ -263,7 +270,6 @@ const ResumeBuilder = ({ initialContent }) => {
                     {...field}
                     className="h-32"
                     placeholder="Write a compelling professional summary..."
-                    error={errors.summary}
                   />
                 )}
               />
@@ -283,7 +289,6 @@ const ResumeBuilder = ({ initialContent }) => {
                     {...field}
                     className="h-32"
                     placeholder="List your key skills..."
-                    error={errors.skills}
                   />
                 )}
               />
@@ -369,13 +374,11 @@ const ResumeBuilder = ({ initialContent }) => {
             >
               {resumeMode === "preview" ? (
                 <>
-                  <Edit className="h-4 w-4" />
-                  Edit Resume
+                  <Edit className="h-4 w-4" /> Edit Resume
                 </>
               ) : (
                 <>
-                  <Monitor className="h-4 w-4" />
-                  Show Preview
+                  <Monitor className="h-4 w-4" /> Show Preview
                 </>
               )}
             </Button>
@@ -385,25 +388,45 @@ const ResumeBuilder = ({ initialContent }) => {
             <div className="flex p-3 gap-2 items-center border-2 border-yellow-600 text-yellow-600 rounded mb-2">
               <AlertTriangle className="h-5 w-5" />
               <span className="text-sm">
-                You will lose editied markdown if you update the form data.
+                You will lose edited markdown if you update the form data.
               </span>
             </div>
           )}
+
           <div className="border rounded-lg">
             <MDEditor
               value={previewContent}
               onChange={setPreviewContent}
               height={800}
               preview={resumeMode}
+              components={{
+                a: ({ children, ...props }) => (
+                  <a
+                    {...props}
+                    style={{ textDecoration: "none", color: "#0645AD" }}
+                  >
+                    {children}
+                  </a>
+                ),
+              }}
             />
           </div>
+
+          {/* Hidden printable area */}
           <div className="hidden">
             <div id="resume-pdf">
               <MDEditor.Markdown
                 source={previewContent}
-                style={{
-                  background: "white",
-                  color: "black",
+                style={{ background: "white", color: "black" }}
+                components={{
+                  a: ({ children, ...props }) => (
+                    <a
+                      {...props}
+                      style={{ textDecoration: "none", color: "#0645AD" }}
+                    >
+                      {children}
+                    </a>
+                  ),
                 }}
               />
             </div>
